@@ -1,0 +1,5 @@
+{
+  "name": "Quiz Master Parser",
+  "description": "A tool to parse raw text questions into an interactive multiple-choice quiz.",
+  "requestFramePermissions": []
+}
