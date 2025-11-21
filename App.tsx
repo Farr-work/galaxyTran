@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { BookOpen, Trash2, FileText, Plus, Home, Clock, Award, CheckCircle, XCircle, ChevronLeft, Search, Filter, Lock, Unlock, Shuffle, KeyRound, User, AlertTriangle, LogIn, LogOut, Trophy } from 'lucide-react';
+import { BookOpen, Trash2, FileText, Plus, Home, Clock, Award, CheckCircle, XCircle, ChevronLeft, Search, Filter, Lock, Unlock, Shuffle, KeyRound, User, AlertTriangle, LogIn, LogOut, Trophy, Target, GraduationCap } from 'lucide-react';
 import { parseQuizContent, SAMPLE_DATA } from './utils/parser';
 import { saveQuiz, getStoredQuizzes, deleteQuiz, saveQuizResult, getQuizResults } from './utils/storage';
 import { Question, Quiz, QuizAttempt } from './types';
@@ -7,6 +7,7 @@ import { QuestionCard } from './components/QuestionCard';
 
 type ViewState = 'dashboard' | 'create' | 'taking' | 'result';
 type FilterType = 'newest' | 'oldest' | 'az' | 'za';
+type QuizMode = 'exam' | 'practice';
 
 const App: React.FC = () => {
   // Navigation State
@@ -33,6 +34,7 @@ const App: React.FC = () => {
 
   // User Session State
   const [candidateName, setCandidateName] = useState("");
+  const [quizMode, setQuizMode] = useState<QuizMode>('exam');
   const [userAnswers, setUserAnswers] = useState<Record<number, Set<string>>>({});
   const [isSubmitted, setIsSubmitted] = useState(false);
 
@@ -52,6 +54,7 @@ const App: React.FC = () => {
     quiz: null
   });
   const [tempName, setTempName] = useState("");
+  const [tempMode, setTempMode] = useState<QuizMode>('exam');
 
   // 3. Submit Confirmation Modal
   const [submitModal, setSubmitModal] = useState({ isOpen: false });
@@ -208,6 +211,7 @@ const App: React.FC = () => {
   // STEP 2: Show Name Input
   const proceedToNameInput = (quiz: Quiz) => {
       setTempName("");
+      setTempMode('exam'); // Default to exam
       setNameModal({ isOpen: true, quiz });
   };
 
@@ -221,12 +225,13 @@ const App: React.FC = () => {
       
       const quiz = nameModal.quiz;
       const name = tempName;
+      const mode = tempMode;
       setNameModal({ isOpen: false, quiz: null });
-      startQuizSession(quiz, name);
+      startQuizSession(quiz, name, mode);
   };
 
   // STEP 3: Actual logic to start the quiz
-  const startQuizSession = (quiz: Quiz, name: string) => {
+  const startQuizSession = (quiz: Quiz, name: string, mode: QuizMode) => {
     const questionsToUse = quiz.shuffleQuestions 
         ? shuffleArray(quiz.questions) 
         : [...quiz.questions];
@@ -234,6 +239,7 @@ const App: React.FC = () => {
     const sessionQuiz = { ...quiz, questions: questionsToUse };
     
     setCandidateName(name);
+    setQuizMode(mode);
     setActiveQuiz(sessionQuiz);
     setUserAnswers({});
     setIsSubmitted(false);
@@ -544,9 +550,14 @@ const App: React.FC = () => {
                 <div className="flex justify-between items-center mb-2">
                     <div className="flex flex-col">
                         <h2 className="font-bold text-gray-800 truncate mr-4">{activeQuiz.title}</h2>
-                        <span className="text-xs text-gray-500 flex items-center gap-1">
-                            <User size={12} /> {candidateName}
-                        </span>
+                        <div className="flex items-center gap-2 text-xs text-gray-500">
+                            <span className="flex items-center gap-1"><User size={12} /> {candidateName}</span>
+                            <span>•</span>
+                            <span className={`flex items-center gap-1 font-medium ${quizMode === 'practice' ? 'text-green-600' : 'text-indigo-600'}`}>
+                                {quizMode === 'practice' ? <Target size={12} /> : <GraduationCap size={12} />}
+                                {quizMode === 'practice' ? 'Luyện tập' : 'Kiểm tra'}
+                            </span>
+                        </div>
                     </div>
                     <div className="flex items-center gap-2 text-sm font-medium">
                         <span className="text-blue-600">{answeredCount}</span>
@@ -570,6 +581,7 @@ const App: React.FC = () => {
                         selectedOptions={userAnswers[q.id] || new Set()}
                         onToggle={(optionId) => toggleAnswer(q.id, optionId)}
                         isSubmitted={false}
+                        mode={quizMode}
                     />
                 ))}
             </div>
@@ -637,7 +649,7 @@ const App: React.FC = () => {
 
                         <div className="flex flex-col sm:flex-row gap-4 justify-center">
                             <button 
-                                onClick={() => startQuizSession(activeQuiz, candidateName)} // Re-use start logic to reshuffle if needed
+                                onClick={() => startQuizSession(activeQuiz, candidateName, quizMode)} // Re-use start logic
                                 className="px-6 py-3 bg-white border border-gray-300 text-gray-700 font-semibold rounded-xl hover:bg-gray-50 transition-colors flex items-center justify-center gap-2"
                             >
                                 <Clock size={18} />
@@ -710,6 +722,7 @@ const App: React.FC = () => {
                         selectedOptions={userAnswers[q.id] || new Set()}
                         onToggle={() => {}} // Read only
                         isSubmitted={true}
+                        mode={quizMode}
                     />
                 ))}
             </div>
@@ -813,7 +826,7 @@ const App: React.FC = () => {
         </div>
       )}
 
-      {/* Name Input Modal */}
+      {/* Name Input Modal & Mode Selection */}
       {nameModal.isOpen && (
         <div className="fixed inset-0 z-[60] bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200">
             <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden">
@@ -824,7 +837,7 @@ const App: React.FC = () => {
                         </div>
                         <h3 className="text-xl font-bold text-gray-900">Thông tin thí sinh</h3>
                         <p className="text-gray-500 text-sm mt-1">
-                            Nhập tên của bạn để bắt đầu làm bài
+                            Nhập tên và chọn chế độ thi
                         </p>
                     </div>
                     
@@ -840,12 +853,32 @@ const App: React.FC = () => {
                                 placeholder="Nguyễn Văn A..."
                             />
                         </div>
-                        <div className="bg-gray-50 p-4 rounded-xl text-sm text-gray-600 space-y-2">
-                            <p><b>Đề thi:</b> {nameModal.quiz?.title}</p>
-                            <p><b>Số câu hỏi:</b> {nameModal.quiz?.questions.length} câu</p>
-                            <p><b>Thời gian:</b> Tự do</p>
+
+                        {/* Mode Selection */}
+                        <div className="grid grid-cols-2 gap-3">
+                            <label 
+                                className={`cursor-pointer border rounded-xl p-3 flex flex-col items-center justify-center gap-2 transition-all ${tempMode === 'exam' ? 'bg-blue-50 border-blue-500 text-blue-700' : 'border-gray-200 hover:bg-gray-50'}`}
+                                onClick={() => setTempMode('exam')}
+                            >
+                                <GraduationCap size={24} className={tempMode === 'exam' ? 'text-blue-600' : 'text-gray-400'} />
+                                <span className="font-semibold text-sm">Chấm điểm</span>
+                                <input type="radio" name="mode" className="hidden" checked={tempMode === 'exam'} onChange={() => setTempMode('exam')} />
+                            </label>
+
+                            <label 
+                                className={`cursor-pointer border rounded-xl p-3 flex flex-col items-center justify-center gap-2 transition-all ${tempMode === 'practice' ? 'bg-green-50 border-green-500 text-green-700' : 'border-gray-200 hover:bg-gray-50'}`}
+                                onClick={() => setTempMode('practice')}
+                            >
+                                <Target size={24} className={tempMode === 'practice' ? 'text-green-600' : 'text-gray-400'} />
+                                <span className="font-semibold text-sm">Luyện tập</span>
+                                <input type="radio" name="mode" className="hidden" checked={tempMode === 'practice'} onChange={() => setTempMode('practice')} />
+                            </label>
                         </div>
-                        <div className="flex gap-3 mt-4">
+                        <div className="text-xs text-gray-500 text-center">
+                            {tempMode === 'exam' ? "Nộp bài mới biết kết quả đúng/sai." : "Biết ngay đáp án sau khi chọn câu trả lời."}
+                        </div>
+
+                        <div className="flex gap-3 mt-6">
                              <button 
                                 type="button"
                                 onClick={() => setNameModal({ isOpen: false, quiz: null })}
@@ -857,7 +890,7 @@ const App: React.FC = () => {
                                 type="submit"
                                 className="flex-1 py-3 rounded-xl font-semibold bg-blue-600 text-white hover:bg-blue-700 transition-colors shadow-lg shadow-blue-200"
                              >
-                                Bắt đầu làm bài
+                                Bắt đầu
                              </button>
                         </div>
                     </form>
